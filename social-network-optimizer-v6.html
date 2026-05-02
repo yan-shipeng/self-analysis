@@ -610,8 +610,8 @@ const SCREEN_COUNT = 4;
 const professionalRoles = ['同事/上下级','客户/合作方','导师/被指导','行业同行','投资关系'];
 const personalRoles     = ['家人/亲属','朋友','同学','邻里/社区'];
 
-const circleOptions   = ['本组织内部','校友/同学圈','家庭/亲属圈','客户/合作圈','投资/资本圈','政府/公共圈','跨国/海外圈'];
-const fieldOptions    = ['制造/工业','金融/投资','科技/互联网','教育/研究','公共部门/政策','消费/零售','医疗/健康','综合管理/未分类'];
+const circleOptions   = ['家庭/亲属','工作/同事','校友/同学','客户/合作伙伴','社群/兴趣','跨国/海外'];  // 按关系来源分类（Fischer 1982; Marsden 1987）
+const fieldOptions    = ['商业/企业','金融/投资','科技/互联网','政府/公共','学术/教育','医疗/健康','文化/媒体','其他'];  // 按资源性质/行业分类（Lin 2001）
 
 /* =====================================================================
    数据模型
@@ -1625,13 +1625,13 @@ document.addEventListener('pointerup', () => {
 ===================================================================== */
 function loadDemoData() {
   const sample = [
-    { name: '前老板陈总',   profRoles: ['同事/上下级','导师/被指导'], persRoles: ['朋友'],          circle: '客户/合作圈',  field: '制造/工业',          trust: 5, mobilization: 4, frequency: 3, closeness: 4 },
-    { name: '团队骨干小刘', profRoles: ['同事/上下级'],                persRoles: [],                 circle: '本组织内部',   field: '制造/工业',          trust: 5, mobilization: 5, frequency: 5, closeness: 4 },
-    { name: '香港投资人',   profRoles: ['投资关系'],                    persRoles: [],                 circle: '投资/资本圈',  field: '金融/投资',          trust: 3, mobilization: 5, frequency: 2, closeness: 2 },
-    { name: '深圳客户张总', profRoles: ['客户/合作方'],                 persRoles: ['朋友'],          circle: '客户/合作圈',  field: '消费/零售',          trust: 4, mobilization: 4, frequency: 3, closeness: 4 },
-    { name: '新加坡同学',   profRoles: ['行业同行'],                    persRoles: ['同学','朋友'],   circle: '跨国/海外圈',  field: '科技/互联网',        trust: 3, mobilization: 2, frequency: 2, closeness: 4 },
-    { name: '大学导师',     profRoles: ['导师/被指导'],                 persRoles: [],                 circle: '校友/同学圈',  field: '教育/研究',          trust: 4, mobilization: 3, frequency: 2, closeness: 3 },
-    { name: '家族长辈',     profRoles: [],                              persRoles: ['家人/亲属'],     circle: '家庭/亲属圈',  field: '综合管理/未分类',    trust: 4, mobilization: 4, frequency: 4, closeness: 5 }
+    { name: '前老板陈总',   profRoles: ['同事/上下级','导师/被指导'], persRoles: ['朋友'],          circle: '客户/合作伙伴', field: '商业/企业',   trust: 5, mobilization: 4, frequency: 3, closeness: 4 },
+    { name: '团队骨干小刘', profRoles: ['同事/上下级'],                persRoles: [],                 circle: '工作/同事',     field: '商业/企业',   trust: 5, mobilization: 5, frequency: 5, closeness: 4 },
+    { name: '香港投资人',   profRoles: ['投资关系'],                    persRoles: [],                 circle: '客户/合作伙伴', field: '金融/投资',   trust: 3, mobilization: 5, frequency: 2, closeness: 2 },
+    { name: '深圳客户张总', profRoles: ['客户/合作方'],                 persRoles: ['朋友'],          circle: '客户/合作伙伴', field: '商业/企业',   trust: 4, mobilization: 4, frequency: 3, closeness: 4 },
+    { name: '新加坡同学',   profRoles: ['行业同行'],                    persRoles: ['同学','朋友'],   circle: '跨国/海外',     field: '科技/互联网', trust: 3, mobilization: 2, frequency: 2, closeness: 4 },
+    { name: '大学导师',     profRoles: ['导师/被指导'],                 persRoles: [],                 circle: '校友/同学',     field: '学术/教育',   trust: 4, mobilization: 3, frequency: 2, closeness: 3 },
+    { name: '家族长辈',     profRoles: [],                              persRoles: ['家人/亲属'],     circle: '家庭/亲属',     field: '其他',        trust: 4, mobilization: 4, frequency: 4, closeness: 5 }
   ];
   contacts = Array.from({ length: 10 }, (_, i) => emptyContact(i));
   sample.forEach((d, i) => {
