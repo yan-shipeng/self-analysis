@@ -783,11 +783,11 @@ function renderContacts() {
       <!-- 第三行：四个评分（深度构成） -->
       <div class="rating-row" style="margin-top:14px">
         <div>
-          <span class="meta">信任度（危急时你会找他帮忙吗？）</span>
+          <span class="meta">信任度（他愿意为你调动资源吗？）</span>
           ${buildRating(c.id, 'trust', c.trust, '几乎不会', '一定会')}
         </div>
         <div>
-          <span class="meta">资源动员（他能为你调动资源吗？）</span>
+          <span class="meta">资源禀赋（他自身掌握的资源有多丰富？）</span>
           ${buildRating(c.id, 'mobilization', c.mobilization, '资源很少', '资源极强')}
         </div>
         <div>
