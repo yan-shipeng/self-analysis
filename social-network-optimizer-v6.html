@@ -607,7 +607,7 @@ const SCREEN_COUNT = 4;
    选项常量
 ===================================================================== */
 // 多重关系：职业属性 + 私人属性
-const professionalRoles = ['同事/上下级','客户/合作方','导师/被指导','行业同行','投资关系'];
+const professionalRoles = ['上级/老板','平级同事','下属/团队成员','客户/合作方','导师（他指导我）','被指导者（我指导他）','行业同行','投资关系'];
 const personalRoles     = ['家人/亲属','朋友','同学','邻里/社区'];
 
 const circleOptions   = ['核心圈（至亲，≤ 5人）','亲密圈（好友，≈ 15人）','朋友圈（朋友，≈ 50人）','熟人圈（认识，≈ 150人）'];  // Dunbar 亲密度同心圆（Dunbar 1992）
@@ -1625,12 +1625,12 @@ document.addEventListener('pointerup', () => {
 ===================================================================== */
 function loadDemoData() {
   const sample = [
-    { name: '前老板陈总',   profRoles: ['同事/上下级','导师/被指导'], persRoles: ['朋友'],          circle: '亲密圈（好友，≈ 15人）', field: '商业/企业',   trust: 5, mobilization: 4, frequency: 3, closeness: 4 },
-    { name: '团队骨干小刘', profRoles: ['同事/上下级'],                persRoles: [],                 circle: '朋友圈（朋友，≈ 50人）', field: '商业/企业',   trust: 5, mobilization: 5, frequency: 5, closeness: 4 },
+    { name: '前老板陈总',   profRoles: ['上级/老板','导师（他指导我）'], persRoles: ['朋友'],          circle: '亲密圈（好友，≈ 15人）', field: '商业/企业',   trust: 5, mobilization: 4, frequency: 3, closeness: 4 },
+    { name: '团队骨干小刘', profRoles: ['下属/团队成员'],                persRoles: [],                 circle: '朋友圈（朋友，≈ 50人）', field: '商业/企业',   trust: 5, mobilization: 5, frequency: 5, closeness: 4 },
     { name: '香港投资人',   profRoles: ['投资关系'],                    persRoles: [],                 circle: '熟人圈（认识，≈ 150人）', field: '金融/投资',   trust: 3, mobilization: 5, frequency: 2, closeness: 2 },
     { name: '深圳客户张总', profRoles: ['客户/合作方'],                 persRoles: ['朋友'],          circle: '朋友圈（朋友，≈ 50人）', field: '商业/企业',   trust: 4, mobilization: 4, frequency: 3, closeness: 4 },
     { name: '新加坡同学',   profRoles: ['行业同行'],                    persRoles: ['同学','朋友'],   circle: '亲密圈（好友，≈ 15人）', field: '科技/互联网', trust: 3, mobilization: 2, frequency: 2, closeness: 4 },
-    { name: '大学导师',     profRoles: ['导师/被指导'],                 persRoles: [],                 circle: '朋友圈（朋友，≈ 50人）', field: '学术/教育',   trust: 4, mobilization: 3, frequency: 2, closeness: 3 },
+    { name: '大学导师',     profRoles: ['导师（他指导我）'],                 persRoles: [],                 circle: '朋友圈（朋友，≈ 50人）', field: '学术/教育',   trust: 4, mobilization: 3, frequency: 2, closeness: 3 },
     { name: '家族长辈',     profRoles: [],                              persRoles: ['家人/亲属'],     circle: '核心圈（至亲，≤ 5人）', field: '其他',        trust: 4, mobilization: 4, frequency: 4, closeness: 5 }
   ];
   contacts = Array.from({ length: 10 }, (_, i) => emptyContact(i));
