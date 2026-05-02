@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>核心联系人社会网络结构诊断 v6</title>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== 设计 Token ===== */
+    :root {
+      --bg: #f7f6f2;
+      --surface: #fbfbf9;
+      --border: #d8d4cc;
+      --text: #28251d;
+      --muted: #6f6c65;
+      --primary: #01696f;
+      --primary-soft: #cedcd8;
+      --blue: #006494;
+      --success: #437a22;
+      --warn: #c97b1c;
+      --error: #a12c7b;
+      --radius: 16px;
+      --font: 'Satoshi', 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font: 16px/1.6 var(--font); padding: 16px; }
+    button, input, select { font: inherit; }
+
+    /* ===== 应用容器 ===== */
+    .app {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 24px;
+      min-height: 85vh;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
+      gap: 20px;
+    }
+
+    /* ===== 顶部 ===== */
+    .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .chip {
+      display: inline-flex;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-size: 14px;
+      white-space: nowrap;
+    }
+    .muted, .help, .meta { color: var(--muted); font-size: 14px; }
+
+    /* ===== 步骤条 ===== */
+    .stepper {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 12px 0 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .stepper::-webkit-scrollbar { display: none; }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      cursor: default;
+    }
+    .step.clickable { cursor: pointer; }
+    .step-dot {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .2s;
+    }
+    .step-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+      white-space: nowrap;
+      transition: color .2s;
+    }
+    .step-line {
+      flex: 1;
+      min-width: 16px;
+      height: 2px;
+      background: var(--border);
+      margin: 0 4px;
+      transition: background .2s;
+    }
+    .step.active .step-dot { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .step.active .step-label { color: var(--primary); font-weight: 700; }
+    .step.done .step-dot { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+    .step.done .step-label { color: var(--primary); }
+
+    /* ===== 内容区 ===== */
+    .screen { display: none; gap: 16px; }
+    .screen.active { display: grid; }
+    .panel, .contact-card, .pair-card, .metric, .note {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .grid-2, .grid-3 { display: grid; gap: 16px; }
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    ul { padding-left: 20px; display: grid; gap: 8px; margin-top: 10px; }
+
+    /* ===== 表单控件 ===== */
+    input[type="text"], select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      min-height: 44px;
+    }
+
+    /* ===== 多重关系 checkbox 组 ===== */
+    .relation-group {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .relation-group-title {
+      font-size: 12px;
+      color: var(--primary);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .relation-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .rel-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 13px;
+      background: #fff;
+      user-select: none;
+      transition: all .15s;
+    }
+    .rel-chip input { display: none; }
+    .rel-chip.checked {
+      background: var(--primary-soft);
+      border-color: var(--primary);
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    /* ===== 1-5 评分点选 ===== */
+    .rating {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .rating-dot {
+      flex: 1;
+      min-width: 36px;
+      min-height: 40px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--muted);
+      transition: all .15s;
+    }
+    .rating-dot.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .rating-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 12px;
+    }
+    @media (max-width: 700px) {
+      .rating-row { grid-template-columns: 1fr; }
+    }
+
+    /* ===== 联系人 & 配对卡片 ===== */
+    .contacts, .pairs { display: grid; gap: 16px; }
+    .pair-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+    .circle-group-title {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--primary);
+      padding: 8px 0 4px;
+      border-bottom: 1px solid var(--primary-soft);
+      margin-top: 8px;
+    }
+
+    /* ===== 拨动开关 ===== */
+    .toggle {
+      min-width: 72px;
+      min-height: 42px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #ece7e0;
+      position: relative;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 4px; left: 4px;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform .2s;
+    }
+    .toggle.on { background: var(--primary-soft); }
+    .toggle.on::after { transform: translateX(28px); background: var(--primary); }
+
+    /* ===== 页脚 ===== */
+    .footer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+    }
+    .btns { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn {
+      appearance: none;
+      -webkit-appearance: none;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      padding: 14px 18px;
+      border-radius: 12px;
+      min-height: 48px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ===== 进度条 ===== */
+    .bar { height: 10px; border-radius: 999px; background: #ece7e0; overflow: hidden; margin: 10px 0; }
+    .bar span { display: block; height: 100%; }
+
+    /* ===== 网络图 ===== */
+    .graph-shell {
+      position: relative;
+      aspect-ratio: 1;
+      min-height: 360px;
+      border-radius: 16px;
+      background: #fff;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    @media (max-width: 700px) {
+      .graph-shell { min-height: 380px; aspect-ratio: 4 / 5; }
+    }
+    .graph-shell svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .node {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      min-width: 92px;
+      max-width: 140px;
+      padding: 9px 10px;
+      border-radius: 18px;
+      text-align: center;
+      background: #fff;
+      border: 2px solid var(--border);
+      cursor: grab;
+      user-select: none;
+    }
+    .node.me { border-color: var(--primary); background: var(--primary-soft); }
+    .node.multiplex {
+      box-shadow: 0 0 0 3px var(--warn);
+    }
+    .node strong { display: block; font-size: 14px; }
+    .node small { display: block; font-size: 12px; color: var(--muted); }
+
+    /* ===== 结果页：雷达 + 网络图 并排 ===== */
+    .results-top {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 900px) {
+      .results-top { grid-template-columns: 1fr; }
+    }
+
+    /* ===== 雷达图 ===== */
+    .radar-shell {
+      position: relative;
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      aspect-ratio: 1;
+    }
+    .radar-shell svg { width: 100%; height: 100%; display: block; }
+
+    /* ===== ROI 钩子 ===== */
+    .roi-card {
+      background: linear-gradient(135deg, #e8f4f4 0%, #f0f7f0 100%);
+      border: 1px solid var(--primary-soft);
+      border-radius: var(--radius);
+      padding: 24px;
+      text-align: center;
+    }
+    .roi-card .roi-headline {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.3;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+    .roi-card .roi-sub { color: var(--muted); font-size: 15px; }
+
+    /* ===== 引用块 ===== */
+    .quote-block {
+      border-left: 4px solid var(--success);
+      background: #f4f4f2;
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 4px;
+    }
+    .quote-block em { font-style: italic; }
+
+    /* ===== 指标解读 ===== */
+    .metric-insight {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }
+
+    /* ===== 概念卡片 ===== */
+    .concept-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .concept-card .concept-title-cn {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .concept-card .concept-title-en {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 2px;
+      margin-bottom: 12px;
+    }
+    .concept-card .concept-row {
+      margin-top: 10px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .concept-card .concept-row strong {
+      color: var(--primary);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .concept-card .action-row {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #f4f9f8;
+      border-left: 3px solid var(--primary);
+      border-radius: 0 8px 8px 0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .concept-card .action-row strong {
+      color: var(--primary);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    /* ===== Toast ===== */
+    #toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-80px);
+      background: var(--primary);
+      color: #fff;
+      padding: 14px 24px;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 15px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+      z-index: 9999;
+      transition: transform .35s cubic-bezier(.34,1.56,.64,1);
+      cursor: pointer;
+      max-width: 90vw;
+      text-align: center;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ===== 复制按钮 ===== */
+    .copy-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .copy-tip {
+      font-size: 13px;
+      color: var(--success);
+      font-weight: 700;
+      opacity: 0;
+      transition: opacity .3s;
+    }
+    .copy-tip.show { opacity: 1; }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 900px) {
+      .grid-2, .grid-3, .footer { grid-template-columns: 1fr; }
+      .btns, .btn { width: 100%; }
+      .app { padding: 16px; }
+      .step-label { display: none; }
+    }
+
+    /* ===== 打印 / 导出 PDF 专用样式 ===== */
+    @media print {
+      @page { size: A4; margin: 12mm 10mm; }
+      body { background: #fff; padding: 0; font-size: 11pt; }
+      /* 隐藏交互元素 */
+      .stepper, .footer, .top .chip, .copy-area, #toast { display: none !important; }
+      /* 隐藏除结果页（screen3）以外的页面 */
+      #screen0, #screen1, #screen2 { display: none !important; }
+      #screen3 { display: grid !important; }
+      /* 容器去除边框阴影，省墨 */
+      .app {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        border: none;
+        background: #fff;
+        box-shadow: none;
+        min-height: 0;
+      }
+      .panel, .metric, .note, .concept-card, .contact-card, .pair-card {
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+        background: #fff !important;
+      }
+      .quote-block { background: #f6f6f4 !important; page-break-inside: avoid; }
+      .roi-card { background: #f4f9f8 !important; }
+      /* 雷达图与网络图保留并排，但限制高度，避免暑页 */
+      .results-top { grid-template-columns: 1fr 1fr; gap: 8mm; }
+      .radar-shell { max-width: 80mm; }
+      .graph-shell { min-height: 80mm; aspect-ratio: 1; overflow: hidden; }
+      .node {
+        background: #fff !important;
+        box-shadow: none !important;
+      }
+      .node.multiplex { box-shadow: 0 0 0 2px #c97b1c !important; }
+      /* 概念卡严禁被拆分 */
+      .concept-card { page-break-inside: avoid; margin-top: 8px; }
+      /* 顶部标题紧凑些 */
+      .top h1 { font-size: 18pt !important; margin: 0 !important; }
+      .top p { margin-top: 4px !important; }
+      /* 确保颜色与背景质量（Webkit）*/
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      /* 隔页提示：在雷达+网络图后、概念卡前加个空间提示（可选）*/
+      .quote-block { page-break-before: auto; }
+      /* 页脚信息：加上生成时间 */
+      #printFooter { display: block !important; }
+    }
+    /* 屏幕上隐藏打印页脚 */
+    #printFooter { display: none; }
+  </style>
+</head>
+<body>
+
+<div id="toast" onclick="closeToast()">诊断完成 ✓</div>
+
+<div class="app">
+  <!-- 顶部 -->
+  <div class="top">
+    <div>
+      <div class="muted" style="text-transform:uppercase;letter-spacing:.08em;color:var(--primary);font-weight:700;">Academic network measures</div>
+      <h1 id="pageTitle" style="font-size:32px;line-height:1.15;margin-top:6px;">先把"核心联系人"选对</h1>
+      <p class="help" id="statusText" style="margin-top:8px;">先理解选择标准。</p>
+    </div>
+    <div class="chip" id="progressChip">步骤 1 / 4</div>
+  </div>
+
+  <!-- 步骤条 — 4 步 -->
+  <div class="stepper" id="stepper" aria-label="流程步骤">
+    <div class="step" data-step="0"><div class="step-dot">1</div><span class="step-label">了解规则</span></div>
+    <div class="step-line"></div>
+    <div class="step" data-step="1"><div class="step-dot">2</div><span class="step-label">填写联系人</span></div>
+    <div class="step-line"></div>
+    <div class="step" data-step="2"><div class="step-dot">3</div><span class="step-label">判断连线</span></div>
+    <div class="step-line"></div>
+    <div class="step" data-step="3"><div class="step-dot">4</div><span class="step-label">诊断结果</span></div>
+  </div>
+
+  <!-- ===== Screen 0：了解规则 ===== -->
+  <div id="screen0" class="screen active">
+    <div class="roi-card">
+      <div class="roi-headline">15 分钟，诊断你的社会资本结构</div>
+      <div class="roi-sub">从五个维度审视你的人脉：广度、深度、多重关系、中心性、结构洞。<br>完成后你将获得一张五维雷达图、可交互的网络图和量身的行动建议。</div>
+    </div>
+    <div class="panel">
+      <strong>联系人怎么选？</strong>
+      <ul>
+        <li>最多可以填写 10 位联系人，但不要求填满。</li>
+        <li>只要至少填写 5 位，就允许进入下一步。</li>
+        <li>优先填最近一年真正影响你判断、资源、机会和协作的人。</li>
+        <li>不要只挑最熟的人,也不要随手填泛泛熟人。</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <strong>本次诊断的五个维度</strong>
+      <ul>
+        <li><strong>广度（Breadth）</strong>：你的关系跨越多少不同圈层和领域。</li>
+        <li><strong>深度（Depth）</strong>：关系的强度、频率与情感投入。</li>
+        <li><strong>多重关系（Multiplexity）</strong>：同一段关系是否同时包含职业属性和私人属性。</li>
+        <li><strong>中心性（Centrality）</strong>：你在这个网络中作为中介的关键程度（Ego Betweenness）。</li>
+        <li><strong>结构洞（Structural Holes）</strong>：你是否连接了本来彼此不连通的人群。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ===== Screen 1：填写联系人 ===== -->
+  <div id="screen1" class="screen">
+    <div class="panel">
+      <strong>填写联系人</strong>
+      <p class="help" style="margin-top:8px">至少填 5 个即可继续。</p>
+      <div style="margin-top:12px">
+        <button class="btn" id="demoBtn" type="button">载入示范例子</button>
+      </div>
+    </div>
+    <div class="contacts" id="contactsWrap"></div>
+  </div>
+
+  <!-- ===== Screen 2：判断连线 ===== -->
+  <div id="screen2" class="screen"></div>
+
+  <!-- ===== Screen 3：诊断结果（五维总览 + 网络图 + 逐维解读 三合一） ===== -->
+  <div id="screen3" class="screen"></div>
+
+  <!-- 页脚 -->
+  <div class="footer">
+    <span class="help" id="footerHint">点击"下一步"进入联系人填写页。</span>
+    <div class="btns">
+      <button class="btn" id="resetBtn" type="button">重新开始</button>
+      <button class="btn" id="prevBtn" type="button">上一步</button>
+      <button class="btn primary" id="nextBtn" type="button">下一步</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   工具
+===================================================================== */
+const byId = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const SCREEN_COUNT = 4;
+
+/* =====================================================================
+   选项常量
+===================================================================== */
+// 多重关系：职业属性 + 私人属性
+const professionalRoles = ['同事/上下级','客户/合作方','导师/被指导','行业同行','投资关系'];
+const personalRoles     = ['家人/亲属','朋友','同学','邻里/社区'];
+
+const circleOptions   = ['本组织内部','校友/同学圈','家庭/亲属圈','客户/合作圈','投资/资本圈','政府/公共圈','跨国/海外圈'];
+const fieldOptions    = ['制造/工业','金融/投资','科技/互联网','教育/研究','公共部门/政策','消费/零售','医疗/健康','综合管理/未分类'];
+
+/* =====================================================================
+   数据模型
+===================================================================== */
+function emptyContact(i) {
+  return {
+    id: i + 1,
+    name: '',
+    profRoles: [],   // 职业属性数组
+    persRoles: [],   // 私人属性数组
+    circle: '',
+    field: '',
+    trust: 3,        // 危急时求助
+    mobilization: 3, // 资源调动
+    frequency: 3,    // 互动频率
+    closeness: 3,    // 亲近度（关系有多铁）
+    x: null, y: null
+  };
+}
+
+let contacts = Array.from({ length: 10 }, (_, i) => emptyContact(i));
+let pairs = [];
+let currentScreen = 0;
+let dragging = null;
+let rafPending = false;
+let centerNode = { x: null, y: null };
+
+const titles = [
+  '先把"核心联系人"选对',
+  '一次性填写联系人',
+  '判断联系人之间的连线',
+  '诊断结果：五维总览 · 网络图 · 逐维解读'
+];
+
+const statusTexts = [
+  '先理解选择标准。',
+  () => `当前已填写 ${filledContacts().length}/10 位联系人，满 5 位即可继续。`,
+  '判断每对联系人是否互相认识。',
+  '雷达图、网络图与逐维解读集中呈现。'
+];
+
+const hints = [
+  '点击"下一步"进入联系人填写页。',
+  '不用填满 10 个，至少 5 个即可。',
+  '判断完成后点击"下一步"。',
+  '这是最后一页，可以复制摘要分享。'
+];
+
+/* =====================================================================
+   工具函数
+===================================================================== */
+function filledContacts() { return contacts.filter(c => c.name.trim()); }
+function label(id) { const c = contacts[id - 1]; return c && c.name.trim() ? c.name : `联系人${id}`; }
+function isMultiplex(c) { return c.profRoles.length > 0 && c.persRoles.length > 0; }
+
+/* option 辅助 */
+function buildOptions(arr, current) {
+  const placeholder = `<option value="" ${!current ? 'selected' : ''}>请选择…</option>`;
+  return placeholder + arr.map(v => `<option value="${esc(v)}" ${current === v ? 'selected' : ''}>${esc(v)}</option>`).join('');
+}
+
+/* 1-5 评分点选 */
+function buildRating(id, field, current, leftLabel, rightLabel) {
+  const dots = [1,2,3,4,5].map(v =>
+    `<button class="rating-dot ${Number(current)===v?'active':''}" data-id="${id}" data-rating="${field}" data-val="${v}" type="button">${v}</button>`
+  ).join('');
+  return `
+    <div class="rating">${dots}</div>
+    <div class="meta" style="display:flex;justify-content:space-between;margin-top:4px;font-size:12px">
+      <span>1 = ${esc(leftLabel)}</span><span>5 = ${esc(rightLabel)}</span>
+    </div>
+  `;
+}
+
+/* 多选 chip */
+function buildRoleChips(id, group, options, currentArr) {
+  return options.map(opt => {
+    const checked = currentArr.includes(opt);
+    return `<label class="rel-chip ${checked?'checked':''}" data-role-id="${id}" data-role-group="${group}" data-role-value="${esc(opt)}">
+      <input type="checkbox" ${checked?'checked':''}>${esc(opt)}
+    </label>`;
+  }).join('');
+}
+
+/* =====================================================================
+   步骤条
+===================================================================== */
+function updateStepper(screenIndex) {
+  byId('stepper').querySelectorAll('.step').forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i === screenIndex) el.classList.add('active');
+    else if (i < screenIndex) {
+      el.classList.add('done');
+      el.classList.add('clickable');
+    } else {
+      el.classList.remove('clickable');
+    }
+  });
+  byId('stepper').querySelectorAll('.step-line').forEach((line, i) => {
+    line.style.background = i < screenIndex ? 'var(--primary)' : 'var(--border)';
+  });
+}
+
+/* =====================================================================
+   showScreen
+===================================================================== */
+function showScreen(n) {
+  for (let i = 0; i < SCREEN_COUNT; i++) byId('screen' + i).classList.remove('active');
+  byId('screen' + n).classList.add('active');
+  currentScreen = n;
+
+  byId('pageTitle').textContent = titles[n];
+  byId('progressChip').textContent = `步骤 ${n + 1} / ${SCREEN_COUNT}`;
+  const st = statusTexts[n];
+  byId('statusText').textContent = typeof st === 'function' ? st() : st;
+  byId('footerHint').textContent = hints[n];
+  byId('prevBtn').disabled = (n === 0);
+  byId('nextBtn').textContent = (n === SCREEN_COUNT - 1) ? '完成' : '下一步';
+
+  updateStepper(n);
+
+  if (n === 1) renderContacts();
+  if (n === 2) renderPairs();
+  if (n === 3) renderResults();
+
+  window.scrollTo(0, 0);
+}
+
+/* =====================================================================
+   渲染：联系人列表
+===================================================================== */
+function renderContacts() {
+  byId('contactsWrap').innerHTML = contacts.map(c => `
+    <div class="contact-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <strong>联系人 ${c.id}</strong>
+        <span class="chip">选填位</span>
+      </div>
+
+      <!-- 第一行：基本信息 -->
+      <div class="grid-3" style="margin-top:12px">
+        <label>
+          <span class="meta">姓名/称呼</span>
+          <input type="text" data-id="${c.id}" data-field="name" value="${esc(c.name)}" placeholder="如：前老板陈总">
+        </label>
+        <label>
+          <span class="meta">圈层</span>
+          <select data-id="${c.id}" data-field="circle">${buildOptions(circleOptions, c.circle)}</select>
+        </label>
+        <label>
+          <span class="meta">领域</span>
+          <select data-id="${c.id}" data-field="field">${buildOptions(fieldOptions, c.field)}</select>
+        </label>
+      </div>
+
+      <!-- 第二行：多重关系 -->
+      <div class="relation-group" style="margin-top:14px">
+        <span class="meta">关系属性 <span style="color:var(--muted);font-weight:400">（可同时勾选多项；同时具有职业 + 私人属性，即为多重关系）</span></span>
+        <div>
+          <div class="relation-group-title" style="margin-bottom:4px">职业属性</div>
+          <div class="relation-options">${buildRoleChips(c.id, 'prof', professionalRoles, c.profRoles)}</div>
+        </div>
+        <div>
+          <div class="relation-group-title" style="margin-bottom:4px">私人属性</div>
+          <div class="relation-options">${buildRoleChips(c.id, 'pers', personalRoles, c.persRoles)}</div>
+        </div>
+      </div>
+
+      <!-- 第三行：四个评分（深度构成） -->
+      <div class="rating-row" style="margin-top:14px">
+        <div>
+          <span class="meta">信任度（危急时你会找他帮忙吗？）</span>
+          ${buildRating(c.id, 'trust', c.trust, '几乎不会', '一定会')}
+        </div>
+        <div>
+          <span class="meta">资源动员（他能为你调动资源吗？）</span>
+          ${buildRating(c.id, 'mobilization', c.mobilization, '资源很少', '资源极强')}
+        </div>
+        <div>
+          <span class="meta">互动频率（你们多久联系一次？）</span>
+          ${buildRating(c.id, 'frequency', c.frequency, '一年几次', '每周多次')}
+        </div>
+        <div>
+          <span class="meta">亲近度（你们的关系有多"铁"？）</span>
+          ${buildRating(c.id, 'closeness', c.closeness, '礼貌往来', '深度交心')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* =====================================================================
+   构建配对
+===================================================================== */
+function buildPairs() {
+  const ids = filledContacts().map(c => c.id);
+  const existing = {};
+  pairs.forEach(p => { existing[p.key] = p.connected; });
+  pairs = [];
+  for (let i = 0; i < ids.length; i++) {
+    for (let j = i + 1; j < ids.length; j++) {
+      const key = `${ids[i]}-${ids[j]}`;
+      pairs.push({ key, a: ids[i], b: ids[j], connected: existing[key] || false });
+    }
+  }
+}
+
+/* =====================================================================
+   渲染：连线判断
+===================================================================== */
+function renderPairs() {
+  const groups = {};
+  pairs.forEach(p => {
+    const ca = contacts[p.a - 1], cb = contacts[p.b - 1];
+    const groupKey = [ca.circle || '未选圈层', cb.circle || '未选圈层'].sort().join(' × ');
+    if (!groups[groupKey]) groups[groupKey] = [];
+    groups[groupKey].push(p);
+  });
+
+  let html = `
+    <div class="panel">
+      <strong>判断联系人之间的连线</strong>
+      <p class="help" style="margin-top:8px">判断下列每对联系人是否彼此熟悉（互相认识且有往来）。</p>
+      <div style="margin-top:12px">
+        <button class="btn" id="autoConnectBtn" type="button">⚡ 同圈层 + 同领域默认相连</button>
+      </div>
+    </div>
+    <div class="pairs">
+  `;
+
+  Object.entries(groups).forEach(([groupName, groupPairs]) => {
+    html += `<div class="circle-group-title">📍 ${esc(groupName)}</div>`;
+    groupPairs.forEach(p => {
+      const a = contacts[p.a - 1], b = contacts[p.b - 1];
+      html += `
+        <div class="pair-card">
+          <div>
+            <strong>${esc(label(p.a))} × ${esc(label(p.b))}</strong>
+            <p class="help" style="margin-top:4px">
+              ${esc(a.circle || '未选圈层')} / ${esc(a.field || '未选领域')}
+              —— ${esc(b.circle || '未选圈层')} / ${esc(b.field || '未选领域')}
+            </p>
+          </div>
+          <button class="toggle ${p.connected ? 'on' : ''}" data-pair="${p.key}" type="button"
+            aria-label="${esc(label(p.a))} 与 ${esc(label(p.b))} 是否相连"
+            aria-pressed="${p.connected}"></button>
+        </div>
+      `;
+    });
+  });
+
+  html += '</div>';
+  byId('screen2').innerHTML = html;
+}
+
+/* =====================================================================
+   核心计算：五维指标
+===================================================================== */
+function calcMetrics() {
+  const filled = filledContacts();
+  const n = filled.length;
+  const m = pairs.filter(p => p.connected).length;
+  const possible = n >= 2 ? n * (n - 1) / 2 : 0;
+  const density = possible ? m / possible : 0;
+
+  // 邻接矩阵（联系人之间）
+  const adj = {};
+  filled.forEach(c => adj[c.id] = new Set());
+  pairs.forEach(p => {
+    if (p.connected) { adj[p.a].add(p.b); adj[p.b].add(p.a); }
+  });
+
+  // ============ 1. 广度（Breadth）：圈层 + 领域 Blau Index 平均 ============
+  function blau(arr) {
+    const counts = {};
+    let total = 0;
+    arr.forEach(v => { if (v) { counts[v] = (counts[v] || 0) + 1; total++; } });
+    if (total === 0) return 0;
+    const sumSq = Object.values(counts).reduce((s, v) => s + Math.pow(v / total, 2), 0);
+    return 1 - sumSq;
+  }
+  const breadthCircle = blau(filled.map(c => c.circle));
+  const breadthField  = blau(filled.map(c => c.field));
+  const breadth = (breadthCircle + breadthField) / 2;
+  const uniqueCircles = new Set(filled.map(c => c.circle).filter(Boolean)).size;
+  const uniqueFields  = new Set(filled.map(c => c.field).filter(Boolean)).size;
+
+  // ============ 2. 深度（Depth）：四项均值 / 5 ============
+  const depthScores = filled.map(c =>
+    (Number(c.trust) + Number(c.mobilization) + Number(c.frequency) + Number(c.closeness)) / 4
+  );
+  const depthMean = depthScores.length ? depthScores.reduce((a,b)=>a+b,0) / depthScores.length : 0;
+  const depth = depthMean / 5; // 归一化到 0-1
+  // 强关系数量（深度 >= 4）
+  const strongCount = depthScores.filter(s => s >= 4).length;
+
+  // ============ 3. 多重关系（Multiplexity） ============
+  const multiplexCount = filled.filter(isMultiplex).length;
+  const multiplexity = n > 0 ? multiplexCount / n : 0;
+
+  // ============ 4. 中心性（Ego Betweenness） ============
+  // 对每对 alter (i,j)，计算 ego 在它们最短路径上的份额
+  // ego-net 中：若 i,j 直接相连，最短路 = 1（不经过 ego，贡献 0）
+  //             否则 i,j 必须经过 ego（最短路 = 2，唯一），贡献 1
+  // 归一化：除以最大可能值 = (n choose 2) - m_alter
+  // 标准化：betweenness / [(n-1)(n-2)/2]（无向图标准）
+  let egoBetweenness = 0;
+  let centralityNormalized = 0;
+  if (n >= 2) {
+    const alterIds = filled.map(c => c.id);
+    let pathCount = 0;
+    for (let i = 0; i < alterIds.length; i++) {
+      for (let j = i + 1; j < alterIds.length; j++) {
+        if (!adj[alterIds[i]].has(alterIds[j])) {
+          pathCount++; // ego 在 (i,j) 的唯一最短路径上
+        }
+      }
+    }
+    egoBetweenness = pathCount;
+    // 归一化分母：(n-1)*(n-2)/2 = ego 排除后的所有 alter 对的数量（Freeman 1977 标准）
+    const maxPairs = (n - 1) * (n - 2) / 2;
+    centralityNormalized = maxPairs > 0 ? pathCount / maxPairs : 0;
+    // 标准 Ego Betweenness 归一化，范围 0-1
+  }
+
+  // ============ 5. 结构洞（Structural Holes） ============
+  // 跨圈层非冗余连接：
+  // 分子：你直接连接的、circle 不同、且彼此不互连的联系人对数
+  // 分母：所有"彼此不互连"的联系人对数
+  // 直觉：你跨越了多少结构洞 / 所有可能的结构洞机会
+  let crossCircleHoles = 0;
+  let totalHoles = 0;
+  if (n >= 2) {
+    const alterIds = filled.map(c => c.id);
+    for (let i = 0; i < alterIds.length; i++) {
+      for (let j = i + 1; j < alterIds.length; j++) {
+        const a = contacts[alterIds[i] - 1], b = contacts[alterIds[j] - 1];
+        if (!adj[alterIds[i]].has(alterIds[j])) {
+          totalHoles++;
+          if (a.circle && b.circle && a.circle !== b.circle) {
+            crossCircleHoles++;
+          }
+        }
+      }
+    }
+  }
+  const structuralHoles = totalHoles > 0 ? crossCircleHoles / totalHoles : 0;
+
+  return {
+    n, m, possible, density,
+    breadth, breadthCircle, breadthField, uniqueCircles, uniqueFields,
+    depth, depthMean, strongCount,
+    multiplexity, multiplexCount,
+    centrality: centralityNormalized, egoBetweenness,
+    structuralHoles, crossCircleHoles, totalHoles,
+    adj
+  };
+}
+
+/* =====================================================================
+   解读文字
+===================================================================== */
+function insightBreadth(v, r) {
+  const detail = `（覆盖 ${r.uniqueCircles} 个圈层 / ${r.uniqueFields} 个领域）`;
+  if (v >= 0.7) return `广度优秀 ${detail}：你的关系跨越多个圈层和领域，资源异质性高。`;
+  if (v >= 0.4) return `广度中等 ${detail}：跨界有一定基础，仍有拓展空间。`;
+  return `广度偏低 ${detail}：人脉较为集中于少数圈层，建议主动接触不同领域。`;
+}
+function insightDepth(v, r) {
+  const detail = `（强关系 ${r.strongCount} 位）`;
+  if (v >= 0.7) return `深度优秀 ${detail}：你拥有充分的强关系，情感与资源支持稳固。`;
+  if (v >= 0.5) return `深度中等 ${detail}：核心圈尚可，部分关系需要更频繁的投入。`;
+  return `深度偏低 ${detail}：关系普遍偏弱，建议加深与核心几位的联系。`;
+}
+function insightMultiplex(v, r) {
+  const detail = `（${r.multiplexCount} 位同时具备职业与私人属性）`;
+  if (v >= 0.4) return `多重关系丰富 ${detail}：你的关系交织着工作和私人维度，韧性强、信任成本低。`;
+  if (v >= 0.2) return `多重关系中等 ${detail}：少数关系跨越职业边界，是宝贵的"高韧性节点"。`;
+  return `多重关系稀少 ${detail}：你的人脉职业化倾向明显，私人交集不足可能限制深度信任。`;
+}
+function insightCentrality(v, r) {
+  const detail = `（${r.egoBetweenness} 对联系人需经你才能连通）`;
+  if (v >= 0.6) return `中心性高 ${detail}：你在网络中是关键中介，信息流通和资源调度的核心。`;
+  if (v >= 0.3) return `中心性中等 ${detail}：你提供部分桥梁价值，但联系人之间也有自有连接。`;
+  return `中心性较低 ${detail}：你的联系人之间彼此熟络，你的中介作用相对有限。`;
+}
+function insightHoles(v, r) {
+  const detail = `（${r.crossCircleHoles}/${r.totalHoles} 对跨圈层桥接）`;
+  if (v >= 0.5) return `结构洞优势明显 ${detail}：你跨越多个独立群体，具备显著的信息中介红利。`;
+  if (v >= 0.25) return `结构洞中等 ${detail}：部分跨界连接存在，仍可主动开发更多桥接机会。`;
+  return `结构洞较少 ${detail}：你的人脉集中在相似圈层，跨界中介机会有限。`;
+}
+
+/* 行动建议：基于实际数据的具体建议 */
+function actionBreadth(r) {
+  const w = r.uniqueCircles + r.uniqueFields;
+  if (w < 6) return '本周内主动联系一位完全不同领域的旧识，或参加一次跨行业的活动，目标是把覆盖圈层提升到至少 5 个。';
+  if (w < 9) return '尝试在本季度新增一位来自你目前未覆盖领域的联系人（如政策圈、海外圈或医疗圈），让广度再上一个台阶。';
+  return '保持现有的多元结构，接下来重点是深化跨圈关系，避免广而不深。';
+}
+function actionDepth(r) {
+  if (r.strongCount < 2) return '挑出 2-3 位最关键的联系人，本月内安排一次深度沟通（不是寒暄），把信任分提升到 4 分以上。';
+  if (r.depthMean < 3.5) return '检查你的"互动频率"列：分数低于 3 的联系人，考虑是否值得继续维护；值得维护的，建立固定联系节奏（季度饭局/月度通话）。';
+  return '深度结构良好，注意避免过度集中于强关系而忽略了信息异质性来源。';
+}
+function actionMultiplex(r) {
+  if (r.multiplexCount === 0) return '思考一下：现有联系人中，谁是"工作上的同事 + 私下的朋友"？如果一个都没有，你的网络韧性偏弱，建议把 1-2 位重要工作关系发展为有私人交集。';
+  if (r.multiplexity < 0.3) return '现有的多重关系是你的"超级节点"，要重点维护。同时，从私人朋友圈中识别可能的工作合作机会。';
+  return '多重关系比例健康，注意保护这些关系——它们一旦破裂，工作和私人都会受影响。';
+}
+function actionCentrality(r) {
+  if (r.centrality >= 0.6) return '你已是网络枢纽，注意两点：一是别让自己成为信息瓶颈，可以适度引荐联系人互识；二是中介位置带来政治风险，警惕"夹板气"。';
+  if (r.centrality >= 0.3) return '你的中介价值适中。如果想增强中心性，主动促成不互相认识的联系人之间产生联系（你介绍他们）；如果想降低，则让他们直接对接。';
+  return '你的联系人之间已彼此熟络。这意味着团队凝聚力强，但你的不可替代性偏低。考虑在边缘地带发展新关系。';
+}
+function actionHoles(r) {
+  if (r.crossCircleHoles < 2) return '主动识别两个你最了解但彼此不来往的圈子（如"学术圈"与"产业圈"），有意识地搭建一座桥（介绍 2 位代表认识），这是 Burt 意义上的"经纪人红利"。';
+  if (r.structuralHoles < 0.4) return '虽有跨界连接，但占比不高。检查是否有"潜在桥梁"被你忽略——某些联系人本可以引荐到完全不同的圈子。';
+  return '结构洞优势明显，继续保持。注意：跨界中介的关键在于"信息差"，定期更新各圈最新动态，否则桥梁会贬值。';
+}
+
+/* =====================================================================
+   渲染：诊断结果（screen3）— 雷达图 + 网络图 + 逐维解读 三合一
+===================================================================== */
+function renderResults() {
+  const r = calcMetrics();
+  const dims = [
+    { key: 'breadth',         label: '广度',     value: r.breadth,         color: 'var(--blue)' },
+    { key: 'depth',           label: '深度',     value: r.depth,           color: 'var(--success)' },
+    { key: 'multiplexity',    label: '多重关系', value: r.multiplexity,    color: 'var(--warn)' },
+    { key: 'centrality',      label: '中心性',   value: r.centrality,      color: 'var(--primary)' },
+    { key: 'structuralHoles', label: '结构洞',   value: r.structuralHoles, color: 'var(--error)' }
+  ];
+  const sorted = [...dims].sort((a,b) => b.value - a.value);
+  const best = sorted[0], worst = sorted[sorted.length - 1];
+
+  const cards = [
+    {
+      cn: '广度', en: 'Breadth (Blau Index, average of circle & field)',
+      def: '你的关系跨越多少不同圈层和领域。基于 Blau 多样性指数：既考虑圈层的种类，也考虑各圈层中联系人的分布是否均匀。',
+      value: `${r.breadth.toFixed(3)}（${r.uniqueCircles} 个圈层 / ${r.uniqueFields} 个领域）`,
+      insight: insightBreadth(r.breadth, r),
+      action: actionBreadth(r),
+      ref: 'Granovetter (1973), Burt (1992)'
+    },
+    {
+      cn: '深度', en: 'Depth (mean of trust, mobilization, frequency, closeness)',
+      def: '你的关系强度、互动频率与情感投入的综合水平。四项 1–5 评分的均值，归一化到 0–1。',
+      value: `${r.depth.toFixed(3)}（原始均值 ${r.depthMean.toFixed(2)} / 5；强关系 ${r.strongCount} 位）`,
+      insight: insightDepth(r.depth, r),
+      action: actionDepth(r),
+      ref: 'Granovetter (1973) 关系强度四要素'
+    },
+    {
+      cn: '多重关系', en: 'Multiplexity',
+      def: '同一段关系是否同时包含职业属性和私人属性。多重关系的联系人通常具有更高的信任成本和韧性。',
+      value: `${r.multiplexity.toFixed(3)}（${r.multiplexCount}/${r.n} 位同时具有职业 + 私人属性）`,
+      insight: insightMultiplex(r.multiplexity, r),
+      action: actionMultiplex(r),
+      ref: 'Verbrugge (1979), Ibarra (1992)'
+    },
+    {
+      cn: '中心性', en: 'Ego Betweenness Centrality',
+      def: '在你的 ego 网络中，有多少对联系人需要"经过你"才能连通。等价于 ego 在所有 alter 对的最短路径上的出现频率。',
+      value: `${r.centrality.toFixed(3)}（${r.egoBetweenness} 对 / 共 ${r.possible} 对联系人对）`,
+      insight: insightCentrality(r.centrality, r),
+      action: actionCentrality(r),
+      ref: 'Freeman (1977)；Everett & Borgatti (2005)'
+    },
+    {
+      cn: '结构洞', en: 'Structural Holes (Cross-circle Bridge Ratio)',
+      def: '在彼此不互连的联系人对中，有多少是分属不同圈层、靠你来桥接的。这是 Burt 经典理论中"非冗余连接"的直观度量。',
+      value: `${r.structuralHoles.toFixed(3)}（${r.crossCircleHoles}/${r.totalHoles} 对不互连联系人为跨圈层桥接）`,
+      insight: insightHoles(r.structuralHoles, r),
+      action: actionHoles(r),
+      ref: 'Burt (1992); Burt (2004)'
+    }
+  ];
+
+  byId('screen3').innerHTML = `
+    <!-- A. 学术说明 -->
+    <div class="note">
+      <strong>学术说明</strong>
+      <p style="margin-top:8px">本诊断基于五个学术维度评估你的社会资本结构。各维度独立呈现，不汇总成单一分数。所有指标已归一化至 0–1 区间。</p>
+    </div>
+
+    <!-- B. 雷达图 + 网络图 并排 -->
+    <div class="results-top">
+      <div class="panel">
+        <strong style="font-size:18px">五维雷达图</strong>
+        <div class="radar-shell" id="radarShell" aria-label="五维社会资本雷达图"></div>
+        <p class="help" style="text-align:center;margin-top:8px">外圈 = 1.0（理想值）｜ 中虚线圈 = 0.5</p>
+      </div>
+      <div class="panel">
+        <strong style="font-size:18px">个人网络图</strong>
+        <div class="graph-shell" id="graphShell" style="margin-top:10px">
+          <svg id="graphEdges"></svg>
+        </div>
+        <p class="help" style="margin-top:8px">
+          <span style="color:var(--warn);font-weight:700">●</span> 黄边框 = 多重关系｜
+          <span style="color:var(--success);font-weight:700">绿色实线</span> = 跨圈层连接｜
+          虚线 = 你与联系人。节点可拖动。
+        </p>
+      </div>
+    </div>
+
+    <!-- C. 最强/最弱 -->
+    <div class="grid-2">
+      <div class="metric" style="border-color:var(--success)">
+        <span class="chip" style="background:#dff0d3;color:var(--success)">最强项</span>
+        <strong style="font-size:20px;margin-top:8px;display:block">${best.label}</strong>
+        <p style="font-size:24px;font-weight:700;color:var(--success);margin-top:4px">${best.value.toFixed(3)}</p>
+      </div>
+      <div class="metric" style="border-color:var(--warn)">
+        <span class="chip" style="background:#fce7c4;color:var(--warn)">提升空间</span>
+        <strong style="font-size:20px;margin-top:8px;display:block">${worst.label}</strong>
+        <p style="font-size:24px;font-weight:700;color:var(--warn);margin-top:4px">${worst.value.toFixed(3)}</p>
+      </div>
+    </div>
+
+    <!-- D. 分维度数值条 -->
+    <div class="panel">
+      <strong style="font-size:16px">分维度数值</strong>
+      ${dims.map(d => `
+        <div style="margin-top:14px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span style="font-weight:700">${d.label}</span>
+            <span style="font-size:14px;color:var(--muted)">${d.value.toFixed(3)}</span>
+          </div>
+          <div class="bar"><span style="width:${(d.value*100).toFixed(1)}%;background:${d.color}"></span></div>
+        </div>
+      `).join('')}
+      <p class="help" style="margin-top:12px">基础信息：${r.n} 位联系人，联系人之间连线 ${r.m} 条（共 ${r.possible} 对）。</p>
+    </div>
+
+    <!-- E. 引用块 + 逐维解读 -->
+    <div class="quote-block">
+      <em>"网络结构是无形的资本。结构洞带来信息红利，多重关系带来信任红利，深度带来支持红利。"</em><br>
+      <span>—— 综合 Burt (1992)、Granovetter (1973)、Lin (2001)</span>
+    </div>
+
+    <!-- F. 5 张概念卡 -->
+    ${cards.map(c => `
+      <div class="concept-card">
+        <div class="concept-title-cn">${esc(c.cn)}</div>
+        <div class="concept-title-en">${esc(c.en)}</div>
+        <div class="concept-row"><strong>是什么</strong>${esc(c.def)}</div>
+        <div class="concept-row"><strong>你的值</strong>${esc(c.value)}</div>
+        <div class="concept-row"><strong>意味着什么</strong>${esc(c.insight)}</div>
+        <div class="action-row"><strong>行动建议</strong>${esc(c.action)}</div>
+        <div class="concept-row" style="font-size:12px;color:var(--muted);margin-top:14px">📚 ${esc(c.ref)}</div>
+      </div>
+    `).join('')}
+
+    <!-- G. 复制区 + 导出区 -->
+    <div class="copy-area">
+      <button class="btn primary" id="exportPdfBtn" type="button">📄 一键导出 PDF</button>
+      <button class="btn" id="copyBtn" type="button">📋 复制摘要</button>
+      <button class="btn" id="copyCsvBtn" type="button">📊 复制 CSV 行</button>
+      <span class="copy-tip" id="copyTip">已复制！</span>
+    </div>
+
+    <!-- 打印专用页脚（只在打印时可见）-->
+    <div id="printFooter" style="margin-top:16px;padding-top:8px;border-top:1px solid #ccc;font-size:9pt;color:#666;text-align:center">
+      社会网络五维诊断报告 · 生成于 ${new Date().toLocaleString('zh-CN')}
+    </div>
+  `;
+
+  // 两帧 rAF 后，雷达图与网络图一起初始化
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    drawRadar(dims);
+    initNodePositions();
+    renderGraphNodes();
+  }));
+
+  // 一键导出 PDF：先修正页面标题为报告名，再调用 print()
+  byId('exportPdfBtn').addEventListener('click', () => {
+    const originalTitle = document.title;
+    const date = new Date().toISOString().slice(0, 10);
+    document.title = `社会网络五维诊断报告-${date}`;
+    // 调用打印，用户在打印对话框选择"保存为 PDF"
+    showToast('请在弹出的打印对话框中选择"保存为 PDF"');
+    setTimeout(() => {
+      window.print();
+      // 恢复原标题
+      setTimeout(() => { document.title = originalTitle; }, 500);
+    }, 300);
+  });
+
+  byId('copyBtn').addEventListener('click', () => {
+    const txt = `社会网络五维诊断｜${r.n}位联系人 / ${r.m}条连线
+广度=${r.breadth.toFixed(3)}（${r.uniqueCircles}圈层/${r.uniqueFields}领域）
+深度=${r.depth.toFixed(3)}（强关系${r.strongCount}位）
+多重关系=${r.multiplexity.toFixed(3)}（${r.multiplexCount}位双重身份）
+中心性=${r.centrality.toFixed(3)}（${r.egoBetweenness}对需经你连通）
+结构洞=${r.structuralHoles.toFixed(3)}（${r.crossCircleHoles}/${r.totalHoles}对跨圈桥接）
+最强：${best.label} ｜ 最弱：${worst.label}`;
+    copyText(txt);
+  });
+  byId('copyCsvBtn').addEventListener('click', () => {
+    const headers = '联系人数,连线数,广度,深度,多重关系,中心性,结构洞';
+    const row = `${r.n},${r.m},${r.breadth.toFixed(3)},${r.depth.toFixed(3)},${r.multiplexity.toFixed(3)},${r.centrality.toFixed(3)},${r.structuralHoles.toFixed(3)}`;
+    copyText(`${headers}\n${row}`);
+  });
+}
+
+function copyText(txt) {
+  const showTip = () => {
+    const tip = byId('copyTip');
+    if (tip) { tip.classList.add('show'); setTimeout(() => tip.classList.remove('show'), 2000); }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(showTip).catch(() => prompt('请手动复制：', txt));
+  } else {
+    prompt('请手动复制：', txt);
+  }
+}
+
+/* =====================================================================
+   雷达图绘制
+===================================================================== */
+function drawRadar(dims) {
+  const shell = byId('radarShell');
+  if (!shell) return;
+  const size = shell.clientWidth || 480;
+  const cx = size / 2, cy = size / 2;
+  const R = size * 0.36;
+  const N = dims.length;
+
+  // 顶点角度（顶点朝上，顺时针）
+  const angle = i => -Math.PI / 2 + i * 2 * Math.PI / N;
+
+  // 网格层（0.25, 0.5, 0.75, 1.0）
+  let grid = '';
+  [0.25, 0.5, 0.75, 1.0].forEach(level => {
+    const pts = dims.map((_, i) => {
+      const a = angle(i);
+      return `${cx + R * level * Math.cos(a)},${cy + R * level * Math.sin(a)}`;
+    }).join(' ');
+    const dash = level === 0.5 ? '4 4' : (level === 1.0 ? '' : '2 4');
+    const stroke = level === 1.0 ? 'var(--border)' : '#e5e2da';
+    grid += `<polygon points="${pts}" fill="none" stroke="${stroke}" stroke-width="1" stroke-dasharray="${dash}" />`;
+  });
+
+  // 轴线
+  let axes = '';
+  dims.forEach((_, i) => {
+    const a = angle(i);
+    const x2 = cx + R * Math.cos(a), y2 = cy + R * Math.sin(a);
+    axes += `<line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}" stroke="#e5e2da" stroke-width="1" />`;
+  });
+
+  // 数据多边形
+  const dataPts = dims.map((d, i) => {
+    const a = angle(i);
+    const v = clamp(d.value, 0, 1);
+    return `${cx + R * v * Math.cos(a)},${cy + R * v * Math.sin(a)}`;
+  }).join(' ');
+
+  // 数据点圆
+  let dots = '';
+  dims.forEach((d, i) => {
+    const a = angle(i);
+    const v = clamp(d.value, 0, 1);
+    const x = cx + R * v * Math.cos(a), y = cy + R * v * Math.sin(a);
+    dots += `<circle cx="${x}" cy="${y}" r="5" fill="${d.color}" stroke="#fff" stroke-width="2" />`;
+  });
+
+  // 标签
+  let labels = '';
+  dims.forEach((d, i) => {
+    const a = angle(i);
+    const lr = R + 28;
+    const x = cx + lr * Math.cos(a), y = cy + lr * Math.sin(a);
+    const align = Math.abs(Math.cos(a)) < 0.3 ? 'middle' : (Math.cos(a) > 0 ? 'start' : 'end');
+    labels += `
+      <text x="${x}" y="${y}" text-anchor="${align}" dominant-baseline="middle"
+        font-size="14" font-weight="700" fill="var(--text)">${d.label}</text>
+      <text x="${x}" y="${y + 16}" text-anchor="${align}" dominant-baseline="middle"
+        font-size="11" fill="var(--muted)">${d.value.toFixed(2)}</text>
+    `;
+  });
+
+  shell.innerHTML = `
+    <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+      ${grid}
+      ${axes}
+      <polygon points="${dataPts}" fill="rgba(1,105,111,0.18)" stroke="var(--primary)" stroke-width="2" />
+      ${dots}
+      ${labels}
+    </svg>
+  `;
+}
+
+
+
+/* =====================================================================
+   网络图：节点位置初始化
+===================================================================== */
+function initNodePositions() {
+  const shell = byId('graphShell');
+  if (!shell) return;
+  const width = shell.clientWidth || 860;
+  const height = shell.clientHeight || 480;
+  const filled = filledContacts();
+  const marginX = 78, marginY = 56;
+
+  centerNode.x = clamp(centerNode.x == null ? width / 2 : centerNode.x, marginX, width - marginX);
+  centerNode.y = clamp(centerNode.y == null ? height / 2 : centerNode.y, marginY, height - marginY);
+
+  const safeRadius = Math.max(80, Math.min(180, (Math.min(width, height) / 2) - 90));
+  filled.forEach((c, i) => {
+    const angle = (-90 + i * (360 / Math.max(filled.length, 1))) * Math.PI / 180;
+    if (c.x === null || c.y === null) {
+      c.x = centerNode.x + safeRadius * Math.cos(angle);
+      c.y = centerNode.y + safeRadius * Math.sin(angle);
+    }
+    c.x = clamp(c.x, marginX, width - marginX);
+    c.y = clamp(c.y, marginY, height - marginY);
+  });
+}
+
+/* =====================================================================
+   网络图：绘制边
+===================================================================== */
+function drawEdges() {
+  const shell = byId('graphShell'), svg = byId('graphEdges');
+  if (!shell || !svg) return;
+  const rect = shell.getBoundingClientRect();
+  svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+  const filled = filledContacts();
+  let out = [];
+  // 中心 → 联系人（虚线）
+  filled.forEach(c => out.push(
+    `<line x1="${centerNode.x}" y1="${centerNode.y}" x2="${c.x}" y2="${c.y}" stroke="currentColor" stroke-opacity="0.18" stroke-width="1.5" stroke-dasharray="4 6" />`
+  ));
+  // 联系人之间
+  pairs.filter(p => p.connected).forEach(p => {
+    const a = contacts[p.a - 1], b = contacts[p.b - 1];
+    if (a && b && a.name && b.name) {
+      const crossCircle = a.circle && b.circle && a.circle !== b.circle;
+      const stroke = crossCircle ? 'var(--success)' : 'currentColor';
+      const opacity = crossCircle ? '0.65' : '0.32';
+      const width = crossCircle ? '2.5' : '2';
+      out.push(`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${stroke}" stroke-opacity="${opacity}" stroke-width="${width}" />`);
+    }
+  });
+  svg.innerHTML = out.join('');
+}
+
+/* =====================================================================
+   网络图：绘制节点
+===================================================================== */
+function renderGraphNodes() {
+  const shell = byId('graphShell');
+  if (!shell) return;
+  shell.querySelectorAll('.node').forEach(n => n.remove());
+
+  // 中心
+  const me = document.createElement('div');
+  me.className = 'node me';
+  me.dataset.role = 'center';
+  me.style.left = `${centerNode.x}px`;
+  me.style.top = `${centerNode.y}px`;
+  me.innerHTML = '<strong>我</strong><small>中心节点</small>';
+  shell.appendChild(me);
+
+  // 联系人
+  filledContacts().forEach(c => {
+    const node = document.createElement('div');
+    const multi = isMultiplex(c);
+    node.className = `node ${multi ? 'multiplex' : ''}`;
+    node.dataset.id = c.id;
+    node.style.left = `${c.x}px`;
+    node.style.top = `${c.y}px`;
+    const depthScore = ((Number(c.trust) + Number(c.mobilization) + Number(c.frequency) + Number(c.closeness)) / 4).toFixed(1);
+    const tagLine = multi ? '多重关系' : (c.circle || '未选圈层');
+    node.innerHTML = `<strong>${esc((c.name || `联系人${c.id}`).slice(0, 12))}</strong><small>深度 ${depthScore} · ${esc(tagLine)}</small>`;
+    shell.appendChild(node);
+  });
+  drawEdges();
+}
+
+/* =====================================================================
+   Toast
+===================================================================== */
+let toastTimer = null;
+function showToast(msg) {
+  const el = byId('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(closeToast, 3000);
+}
+function closeToast() {
+  byId('toast').classList.remove('show');
+  if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+}
+
+/* =====================================================================
+   导航逻辑
+===================================================================== */
+function next() {
+  if (currentScreen === 0) { showScreen(1); return; }
+  if (currentScreen === 1) {
+    if (filledContacts().length < 5) {
+      showToast('请至少填写 5 位联系人');
+      return;
+    }
+    buildPairs();
+    showScreen(2);
+    return;
+  }
+  if (currentScreen === SCREEN_COUNT - 1) {
+    const r = calcMetrics();
+    showToast(`诊断完成 ✓ 广度 ${r.breadth.toFixed(2)} ｜ 深度 ${r.depth.toFixed(2)} ｜ 中心性 ${r.centrality.toFixed(2)}`);
+    return;
+  }
+  if (currentScreen < SCREEN_COUNT - 1) showScreen(currentScreen + 1);
+}
+function prev() { if (currentScreen > 0) showScreen(currentScreen - 1); }
+
+byId('nextBtn').onclick = next;
+byId('prevBtn').onclick = prev;
+
+byId('resetBtn').onclick = () => {
+  if (!confirm('确定要清空所有数据重新开始吗？')) return;
+  contacts = Array.from({ length: 10 }, (_, i) => emptyContact(i));
+  pairs = [];
+  centerNode = { x: null, y: null };
+  saveState();
+  showScreen(0);
+};
+
+/* =====================================================================
+   localStorage 持久化
+===================================================================== */
+const STORAGE_KEY = 'snd_v5_state';
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ contacts, pairs, centerNode }));
+  } catch (e) {}
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (s.contacts && Array.isArray(s.contacts) && s.contacts.length === 10) {
+      // 校验和补全字段
+      contacts = s.contacts.map((c, i) => ({ ...emptyContact(i), ...c }));
+    }
+    if (s.pairs && Array.isArray(s.pairs)) pairs = s.pairs;
+    if (s.centerNode) centerNode = s.centerNode;
+  } catch (e) {}
+}
+
+/* =====================================================================
+   事件委托
+===================================================================== */
+// 文本输入
+document.addEventListener('input', e => {
+  const id = Number(e.target.dataset.id), field = e.target.dataset.field;
+  if (!id || !field) return;
+  if (e.target.tagName === 'SELECT') return;
+  contacts[id - 1][field] = e.target.value;
+  saveState();
+});
+
+// select 变化
+document.addEventListener('change', e => {
+  const id = Number(e.target.dataset.id), field = e.target.dataset.field;
+  if (!id || !field) return;
+  if (e.target.tagName === 'INPUT') return;
+  contacts[id - 1][field] = e.target.value;
+  saveState();
+});
+
+// 点击委托
+document.addEventListener('click', e => {
+  // 步骤条跳转（已完成的步骤可点击）
+  const stepEl = e.target.closest('.step.done');
+  if (stepEl) {
+    const step = Number(stepEl.dataset.step);
+    if (!isNaN(step) && step < currentScreen) {
+      // 进入连线判断前需先 buildPairs（避免空数组）
+      if (step >= 2 && pairs.length === 0 && filledContacts().length >= 2) buildPairs();
+      showScreen(step);
+    }
+    return;
+  }
+
+  // 关系 chip
+  const relChip = e.target.closest('.rel-chip[data-role-id]');
+  if (relChip) {
+    e.preventDefault();
+    const id = Number(relChip.dataset.roleId);
+    const group = relChip.dataset.roleGroup; // 'prof' | 'pers'
+    const value = relChip.dataset.roleValue;
+    const c = contacts[id - 1];
+    if (!c) return;
+    const arr = group === 'prof' ? c.profRoles : c.persRoles;
+    const idx = arr.indexOf(value);
+    if (idx >= 0) arr.splice(idx, 1); else arr.push(value);
+    relChip.classList.toggle('checked');
+    const cb = relChip.querySelector('input');
+    if (cb) cb.checked = !cb.checked;
+    saveState();
+    return;
+  }
+
+  // 评分点选
+  const ratingDot = e.target.closest('.rating-dot[data-rating]');
+  if (ratingDot) {
+    const id = Number(ratingDot.dataset.id);
+    const field = ratingDot.dataset.rating;
+    const val = Number(ratingDot.dataset.val);
+    const c = contacts[id - 1];
+    if (c) {
+      c[field] = val;
+      // 只更新同一组的 active 状态，避免整页重渲染
+      const parent = ratingDot.parentElement;
+      parent.querySelectorAll('.rating-dot').forEach(d => d.classList.remove('active'));
+      ratingDot.classList.add('active');
+      saveState();
+    }
+    return;
+  }
+
+  // 示范例子
+  if (e.target.closest('#demoBtn')) {
+    loadDemoData();
+    showScreen(1);
+    return;
+  }
+
+  // 连线开关（局部更新，不重渲染）
+  const pairBtn = e.target.closest('[data-pair]');
+  if (pairBtn) {
+    const row = pairs.find(p => p.key === pairBtn.dataset.pair);
+    if (row) {
+      row.connected = !row.connected;
+      pairBtn.classList.toggle('on', row.connected);
+      pairBtn.setAttribute('aria-pressed', row.connected);
+      saveState();
+    }
+    return;
+  }
+
+  // 自动连线
+  if (e.target.closest('#autoConnectBtn')) {
+    pairs.forEach(p => {
+      const ca = contacts[p.a - 1], cb = contacts[p.b - 1];
+      if (ca.circle && cb.circle && ca.circle === cb.circle &&
+          ca.field && cb.field && ca.field === cb.field) {
+        p.connected = true;
+      }
+    });
+    renderPairs();
+    saveState();
+    return;
+  }
+});
+
+// 键盘 Enter（避免在 input/textarea 中误触）
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (currentScreen < SCREEN_COUNT - 1) { e.preventDefault(); next(); }
+});
+
+/* =====================================================================
+   拖动
+===================================================================== */
+document.addEventListener('pointerdown', e => {
+  const node = e.target.closest('.node');
+  if (!node) return;
+  if (node.dataset.role === 'center') dragging = { type: 'center', el: node };
+  else if (node.dataset.id) dragging = { type: 'contact', id: Number(node.dataset.id), el: node };
+  if (dragging) { node.style.cursor = 'grabbing'; node.setPointerCapture && node.setPointerCapture(e.pointerId); }
+});
+
+document.addEventListener('pointermove', e => {
+  if (!dragging || rafPending) return;
+  rafPending = true;
+  requestAnimationFrame(() => {
+    rafPending = false;
+    const shell = byId('graphShell');
+    if (!shell) return;
+    const rect = shell.getBoundingClientRect();
+    const x = clamp(e.clientX - rect.left, 78, rect.width - 78);
+    const y = clamp(e.clientY - rect.top, 56, rect.height - 56);
+    if (dragging.type === 'center') {
+      centerNode.x = x; centerNode.y = y;
+      dragging.el.style.left = `${x}px`; dragging.el.style.top = `${y}px`;
+    } else {
+      const c = contacts.find(v => v.id === dragging.id);
+      if (c) { c.x = x; c.y = y; dragging.el.style.left = `${x}px`; dragging.el.style.top = `${y}px`; }
+    }
+    drawEdges();
+  });
+});
+
+document.addEventListener('pointerup', () => {
+  if (dragging) { dragging.el.style.cursor = 'grab'; dragging = null; saveState(); }
+});
+
+/* =====================================================================
+   示范数据
+===================================================================== */
+function loadDemoData() {
+  const sample = [
+    { name: '前老板陈总',   profRoles: ['同事/上下级','导师/被指导'], persRoles: ['朋友'],          circle: '客户/合作圈',  field: '制造/工业',          trust: 5, mobilization: 4, frequency: 3, closeness: 4 },
+    { name: '团队骨干小刘', profRoles: ['同事/上下级'],                persRoles: [],                 circle: '本组织内部',   field: '制造/工业',          trust: 5, mobilization: 5, frequency: 5, closeness: 4 },
+    { name: '香港投资人',   profRoles: ['投资关系'],                    persRoles: [],                 circle: '投资/资本圈',  field: '金融/投资',          trust: 3, mobilization: 5, frequency: 2, closeness: 2 },
+    { name: '深圳客户张总', profRoles: ['客户/合作方'],                 persRoles: ['朋友'],          circle: '客户/合作圈',  field: '消费/零售',          trust: 4, mobilization: 4, frequency: 3, closeness: 4 },
+    { name: '新加坡同学',   profRoles: ['行业同行'],                    persRoles: ['同学','朋友'],   circle: '跨国/海外圈',  field: '科技/互联网',        trust: 3, mobilization: 2, frequency: 2, closeness: 4 },
+    { name: '大学导师',     profRoles: ['导师/被指导'],                 persRoles: [],                 circle: '校友/同学圈',  field: '教育/研究',          trust: 4, mobilization: 3, frequency: 2, closeness: 3 },
+    { name: '家族长辈',     profRoles: [],                              persRoles: ['家人/亲属'],     circle: '家庭/亲属圈',  field: '综合管理/未分类',    trust: 4, mobilization: 4, frequency: 4, closeness: 5 }
+  ];
+  contacts = Array.from({ length: 10 }, (_, i) => emptyContact(i));
+  sample.forEach((d, i) => {
+    contacts[i] = { ...emptyContact(i), ...d, id: i + 1 };
+  });
+  pairs = [];
+  centerNode = { x: null, y: null };
+  saveState();
+}
+
+/* =====================================================================
+   初始化
+===================================================================== */
+loadState();
+showScreen(0);
+</script>
+</body>
+</html>
